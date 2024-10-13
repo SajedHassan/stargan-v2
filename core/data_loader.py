@@ -54,7 +54,7 @@ class ReferenceDataset(data.Dataset):
         self.transform = transform
 
     def _make_dataset(self, root):
-        domains = os.listdir(root)
+        domains = [d for d in os.listdir(root) if not d.startswith('.')]
         fnames, fnames2, labels = [], [], []
         for idx, domain in enumerate(sorted(domains)):
             class_dir = os.path.join(root, domain)
@@ -84,16 +84,19 @@ def _make_balanced_sampler(labels):
     weights = class_weights[labels]
     return WeightedRandomSampler(weights, len(weights))
 
+def rand_crop_to_be_pickled(x):
+    if random.random() < 0.5:
+        crop = transforms.RandomResizedCrop(256, scale=[0.8, 1.0], ratio=[0.9, 1.1])
+        return crop(x)
+    else:
+        return x
 
 def get_train_loader(root, which='source', img_size=256,
                      batch_size=8, prob=0.5, num_workers=4):
     print('Preparing DataLoader to fetch %s images '
           'during the training phase...' % which)
 
-    crop = transforms.RandomResizedCrop(
-        img_size, scale=[0.8, 1.0], ratio=[0.9, 1.1])
-    rand_crop = transforms.Lambda(
-        lambda x: crop(x) if random.random() < prob else x)
+    rand_crop = transforms.Lambda(rand_crop_to_be_pickled)
 
     transform = transforms.Compose([
         rand_crop,
